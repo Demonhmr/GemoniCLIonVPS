@@ -43,23 +43,23 @@ update:
 # If the session doesn't exist yet, a new one named 'main' is created.
 # Detach with: Ctrl+A, D  (session stays alive)
 attach:
-	@docker exec -it gemini-cli-service tmux attach -t main 2>/dev/null \
-	  || docker exec -it gemini-cli-service tmux new-session -s main -n gemini
+	@docker exec -u gemini -it gemini-cli-service tmux attach -t main 2>/dev/null \
+	  || docker exec -u gemini -it gemini-cli-service tmux new-session -s main -n gemini
 
 # Open bash shell inside container (useful for diagnostics)
 shell:
-	docker exec -it gemini-cli-service bash
+	docker exec -u gemini -it gemini-cli-service bash
 
 # Run Gemini CLI interactively
 # Uses 'script' to allocate a native PTY inside the container —
 # required for Ink/React TUI to receive keyboard input over SSH+docker exec
 gemini:
-	docker exec -e TERM=xterm-256color -it gemini-cli-service script -q -c "gemini" /dev/null
+	docker exec -u gemini -e TERM=xterm-256color -it gemini-cli-service script -q -c "gemini" /dev/null
 
 # Send a single prompt and get a response (most reliable on Windows SSH)
 # Usage: make ask Q="your question here"
 ask:
-	@docker exec -it gemini-cli-service gemini -p "$(Q)"
+	@docker exec -u gemini -it gemini-cli-service gemini -p "$(Q)"
 
 # =============================================================================
 # Monitoring
