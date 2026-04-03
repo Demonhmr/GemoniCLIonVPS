@@ -1,0 +1,15 @@
+# Environment — contains secrets, never commit
+.env
+
+# Docker build cache artifacts
+*.log
+
+# Node modules (if any local tooling is added)
+node_modules/
+
+# macOS artifacts
+.DS_Store
+
+# Editor artifacts
+.vscode/
+.idea/
