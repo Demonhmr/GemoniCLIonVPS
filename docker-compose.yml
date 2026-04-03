@@ -50,6 +50,30 @@ services:
       - path: .env
         required: false   # container starts even without .env (OAuth fallback)
 
+  # ===========================================================================
+  # Telegram Bot Service
+  # ===========================================================================
+  telegram-bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: gemini-cli-telegram-bot
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - ALLOWED_CHAT_ID=${ALLOWED_CHAT_ID}
+    volumes:
+      - gemini-config:/home/gemini/.gemini
+      - workspace:/workspace
+    working_dir: /workspace/bot
+    # the container entrypoint properly drops root to gemini, and npm start spawns the bot
+    command: ["npm", "start"]
+    depends_on:
+      - gemini-cli
+
 volumes:
   # Gemini CLI config + OAuth credentials — survives container rebuilds
   gemini-config:
