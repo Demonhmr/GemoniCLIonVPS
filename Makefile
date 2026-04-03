@@ -50,10 +50,14 @@ attach:
 shell:
 	docker exec -it gemini-cli-service bash
 
-# Run Gemini CLI directly, bypassing tmux
-# First run will trigger Google OAuth — open the printed URL in your browser
+# Run Gemini CLI interactively (TERM=xterm fixes SSH+Docker input issues)
 gemini:
-	docker exec -it gemini-cli-service gemini
+	docker exec -e TERM=xterm -it gemini-cli-service gemini
+
+# Send a single prompt and get a response (most reliable on Windows SSH)
+# Usage: make ask Q="your question here"
+ask:
+	@docker exec -it gemini-cli-service gemini -p "$(Q)"
 
 # =============================================================================
 # Monitoring

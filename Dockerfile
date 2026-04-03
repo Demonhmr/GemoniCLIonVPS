@@ -20,6 +20,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         jq \
         less \
         ca-certificates \
+        libsecret-1-0 \
     && npm install -g @google/gemini-cli \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
