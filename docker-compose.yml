@@ -68,7 +68,7 @@ services:
     volumes:
       - gemini-config:/home/gemini/.gemini
       - workspace:/workspace
-    working_dir: /workspace/bot
+    working_dir: /bot
     # the container entrypoint properly drops root to gemini, and npm start spawns the bot
     command: ["npm", "start"]
     depends_on:

@@ -42,6 +42,12 @@ RUN mkdir -p /home/gemini/.gemini /workspace \
     && chown -R gemini:gemini /home/gemini /workspace
 
 # ---------------------------------------------------------------------------
+# Telegram Bot setup
+# ---------------------------------------------------------------------------
+COPY --chown=gemini:gemini bot /bot
+RUN cd /bot && npm install
+
+# ---------------------------------------------------------------------------
 # Entrypoint: runs as root, fixes volume perms, drops to gemini via gosu
 # ---------------------------------------------------------------------------
 COPY entrypoint.sh /entrypoint.sh
