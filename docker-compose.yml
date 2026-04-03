@@ -45,6 +45,9 @@ services:
     environment:
       - TERM=xterm-256color
       - LANG=C.UTF-8
+    env_file:
+      - path: .env
+        required: false   # container starts even without .env (OAuth fallback)
 
 volumes:
   # Google OAuth credentials — survives container rebuilds
