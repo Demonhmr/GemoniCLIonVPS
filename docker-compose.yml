@@ -23,12 +23,13 @@ services:
     oom_kill_disable: false   # allow OOM killer — better than hanging VPS
 
     security_opt:
-      - no-new-privileges:true   # block setuid/setgid privilege escalation
+      - no-new-privileges:true
     cap_drop:
-      - ALL                      # drop all Linux capabilities
-    # cap_add is intentionally empty:
-    # The container runs as UID 1001 (gemini) set in Dockerfile via USER directive.
-    # sleep infinity requires zero capabilities. Named volumes handle file ownership.
+      - ALL
+    cap_add:
+      - CHOWN      # entrypoint.sh needs this to fix Docker volume ownership at startup
+      - SETUID     # gosu needs this to drop from root to gemini
+      - SETGID     # gosu needs this to drop from root to gemini
 
     # -------------------------------------------------------------------------
     # No ports published — container is unreachable from the network
