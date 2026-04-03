@@ -36,8 +36,8 @@ services:
     # -------------------------------------------------------------------------
 
     volumes:
-      # OAuth tokens & Gemini CLI config — NEVER docker volume rm this!
-      - gemini-config:/home/gemini/.config/gemini
+      # Gemini CLI config, credentials & project registry — NEVER docker volume rm this!
+      - gemini-config:/home/gemini/.gemini
 
       # Persistent working directory — your projects survive container rebuilds
       - workspace:/workspace
@@ -50,7 +50,7 @@ services:
         required: false   # container starts even without .env (OAuth fallback)
 
 volumes:
-  # Google OAuth credentials — survives container rebuilds
+  # Gemini CLI config + OAuth credentials — survives container rebuilds
   gemini-config:
     driver: local
 
