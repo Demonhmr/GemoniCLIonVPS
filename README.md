@@ -1,170 +1,172 @@
-# Gemini CLI on VPS
+# GemoniCLIonVPS
 
-> Запуск [Gemini CLI](https://github.com/google-gemini/gemini-cli) в изолированном Docker-контейнере на VPS.  
-> Доступ через SSH → `docker exec` → tmux. Без открытых портов. Без root.
+> **Gemini CLI в Docker-контейнере на VPS** — безопасный, изолированный доступ через SSH.
+
+**Стабильная версия: `v1.0.0`** — проверена в боевых условиях на Ubuntu VPS 1GB RAM.
 
 ---
 
 ## Архитектура
 
 ```
-[Клиент]
-    │  SSH (порт 22, только по ключу)
-[VPS: Ubuntu 22.04, 1GB RAM]
-    │  UFW + fail2ban
-[Docker Container: gemini-cli-service]
-    │  node:20-slim + @google/gemini-cli + tmux
-    │  cap_drop: ALL │ no-new-privileges │ mem_limit: 512m
-[Volumes]
-    gemini-config → OAuth токены
-    workspace     → рабочие файлы
+Локальная машина
+    │
+    └─ SSH ──► VPS (gemini-vps@host)
+                    │
+                    └─ docker exec ──► gemini-cli-service (контейнер)
+                                            │
+                                            ├─ Gemini CLI (interactive TUI)
+                                            ├─ tmux
+                                            └─ /workspace (volume)
 ```
+
+**Ключевые решения:**
+- Нет открытых портов контейнера — доступ только через `docker exec`
+- Контейнер работает от непривилегированного пользователя `gemini` (UID 1001)
+- `gosu` для безопасного сброса привилегий из entrypoint
+- OAuth-токены хранятся в именованном volume — переживают пересборку образа
 
 ---
 
-## Быстрый старт
+## Быстрый старт (чистая VPS)
 
-### 1. Подготовка SSH-ключа (на локальной машине)
+### 1. Добавь SSH-ключ до запуска скрипта
 
 ```bash
-# Сгенерировать ключ если нет
-ssh-keygen -t ed25519 -C "gemini-vps" -f ~/.ssh/vps_key
-
-# Скопировать публичный ключ на VPS (пока ещё работает вход по паролю)
-ssh-copy-id -i ~/.ssh/vps_key.pub root@YOUR_VPS_IP
+# На локальной машине:
+ssh-copy-id -i ~/.ssh/id_ed25519.pub root@YOUR_VPS_IP
 ```
 
-### 2. Настройка VPS
+### 2. Запусти скрипт установки
 
 ```bash
 ssh root@YOUR_VPS_IP
-
-# Скачать скрипт, проверить, запустить
 curl -fsSL https://raw.githubusercontent.com/Demonhmr/GemoniCLIonVPS/main/scripts/setup-vps.sh \
     -o /tmp/setup-vps.sh
-cat /tmp/setup-vps.sh    # ← обязательно прочитать перед запуском
+cat /tmp/setup-vps.sh    # ← прочитай перед запуском
 bash /tmp/setup-vps.sh
 ```
 
-Скрипт сделает:
-- ✅ Обновит систему
-- ✅ Установит Docker
-- ✅ Установит `fail2ban`
-- ✅ Создаст пользователя `gemini-vps`, скопирует SSH-ключ
-- ✅ Отключит парольный вход и вход от root
-- ✅ Настроит UFW (только порт 22)
-- ✅ Запустит контейнер
-
-### 3. Первичная OAuth авторизация (один раз)
+### 3. Если скрипт не сделал git clone (первый деплой)
 
 ```bash
-# Подключиться уже как непривилегированный пользователь
-ssh -i ~/.ssh/vps_key gemini-vps@YOUR_VPS_IP
-
+git clone https://github.com/Demonhmr/GemoniCLIonVPS.git /opt/gemini-cli
 cd /opt/gemini-cli
-make attach          # открывает tmux-сессию
-
-# Внутри tmux:
-gemini               # CLI выведет ссылку для Google OAuth
-# Открыть ссылку в браузере → авторизоваться → токены сохранятся в volume
+chown -R gemini-vps:gemini-vps /opt/gemini-cli
+docker compose up -d --build
 ```
 
-### 4. Ежедневная работа
+### 4. Подключись как gemini-vps и добавь SSH-ключ
 
 ```bash
-ssh -i ~/.ssh/vps_key gemini-vps@YOUR_VPS_IP
-cd /opt/gemini-cli
-make attach
+# В консоли VPS-провайдера (если SSH по паролю уже отключён):
+mkdir -p /home/gemini-vps/.ssh
+echo "YOUR_PUBLIC_KEY" >> /home/gemini-vps/.ssh/authorized_keys
+chmod 700 /home/gemini-vps/.ssh
+chmod 600 /home/gemini-vps/.ssh/authorized_keys
+chown -R gemini-vps:gemini-vps /home/gemini-vps/.ssh
 ```
-
-| Действие | Команда |
-|---|---|
-| Подключиться к сессии | `make attach` |
-| Отсоединиться (сессия живёт) | `Ctrl+A, D` |
-| Запустить Gemini напрямую | `make gemini` |
-| Открыть bash в контейнере | `make shell` |
-| Посмотреть логи | `make logs` |
-| Статус контейнера | `make status` |
-| Обновить Gemini CLI | `make update` |
 
 ---
 
-## Структура проекта
+## Использование
 
+### Подключиться к VPS
+
+```bash
+ssh gemini-vps@YOUR_VPS_IP
+cd /opt/gemini-cli
 ```
-.
-├── Dockerfile              # node:20-slim + gemini-cli + tmux, user UID 1001
-├── docker-compose.yml      # mem_limit, cap_drop, security_opt, named volumes
-├── .tmux.conf              # mouse, Ctrl+A prefix, Alt+Arrows navigation
-├── .env.example            # шаблон (OAuth не требует API ключа)
-├── .gitignore
-├── Makefile                # make help — список команд
-├── README.md
-└── scripts/
-    └── setup-vps.sh        # полная автоматизация настройки VPS
+
+### Запустить интерактивный Gemini CLI
+
+```bash
+make gemini
 ```
+
+> ⚠️ Первый запуск выведет URL для Google OAuth-авторизации.
+> Открой ссылку в браузере → войди через Google → вернись в терминал.
+> Токены сохранятся в volume и больше не потребуются при пересборке.
+
+### Быстрый запрос без интерактивного режима
+
+```bash
+make ask Q="Напиши bash скрипт для бэкапа директории"
+```
+
+### Все доступные команды
+
+```bash
+make help
+```
+
+| Команда | Описание |
+|---|---|
+| `make gemini` | Интерактивный TUI Gemini CLI |
+| `make ask Q="..."` | Одиночный запрос |
+| `make attach` | Войти в tmux-сессию контейнера |
+| `make shell` | Bash внутри контейнера |
+| `make status` | Статус контейнера |
+| `make logs` | Логи контейнера |
+| `make update` | Пересобрать и перезапустить |
+| `make down` | Остановить контейнер |
+
+---
+
+## Технические решения (lessons learned)
+
+### PTY и интерактивный TUI
+
+Gemini CLI использует библиотеку **Ink (React для терминала)**. Через цепочку SSH→`docker exec -it` TUI рендерится, но не принимает ввод.
+
+**Решение:** `script -q -c "gemini" /dev/null` внутри `docker exec` создаёт нативный PTY, который корректно передаёт ввод в Ink. Именно это использует `make gemini`.
+
+### Права на Docker volumes
+
+Docker создаёт именованные volumes с владельцем `root`. Процесс в контейнере работает от `gemini:1001`.
+
+**Решение:** `entrypoint.sh` запускается от root, исправляет права (`chown`), затем передаёт управление `gosu gemini`.
+
+### Имя SSH-сервиса в Ubuntu
+
+На Ubuntu 22.04+ сервис называется `ssh.service`, а не `sshd.service`.
+
+**Решение:** скрипт определяет имя автоматически через `systemctl list-units`.
+
+### machine-id внутри контейнера
+
+Gemini CLI использует `libsecret` для хранения ключей. Без `/etc/machine-id` выводит предупреждение и падает в FileKeychain fallback.
+
+**Решение:** `entrypoint.sh` генерирует `machine-id` при старте контейнера.
 
 ---
 
 ## Безопасность
 
-| Угроза | Защита |
-|---|---|
-| Брутфорс SSH | `fail2ban`, `MaxAuthTries 3` |
-| Вход от root | `PermitRootLogin no` |
-| Парольный вход | `PasswordAuthentication no` |
-| Эскалация привилегий | `no-new-privileges:true`, `cap_drop: ALL` |
-| Утечка OAuth токенов | Named volume (не в образе, не в репо) |
-| Открытые порты | UFW: только 22; контейнер без публичных портов |
-| OOM контейнера | `mem_limit: 512m` (прямой синтаксис, без Swarm) |
+- SSH: только ключевая аутентификация, root-логин отключён
+- `fail2ban`: блокировка после 3 неудачных попыток на 1 час
+- UFW: открыты только порты 22, 80, 443
+- Контейнер: `cap_drop: ALL`, `no-new-privileges`, `mem_limit: 512m`
+- `cap_add`: только `CHOWN`, `SETUID`, `SETGID` — нужны для entrypoint
 
 ---
 
-## tmux: горячие клавиши
-
-| Действие | Комбинация |
-|---|---|
-| Prefix | `Ctrl+A` |
-| Отсоединиться | `Ctrl+A, D` |
-| Новая панель (вертикально) | `Ctrl+A, \|` |
-| Новая панель (горизонтально) | `Ctrl+A, -` |
-| Переключение панелей | `Alt+Стрелки` |
-| Перезагрузить конфиг | `Ctrl+A, R` |
-
----
-
-## Обновление Gemini CLI
+## Обновление
 
 ```bash
-ssh -i ~/.ssh/vps_key gemini-vps@YOUR_VPS_IP
 cd /opt/gemini-cli
+git pull
 make update
 ```
 
-Пересобирает образ с последней версией `@google/gemini-cli`. OAuth токены и файлы в `/workspace` сохраняются (они в named volumes).
+OAuth-токены **не слетают** при обновлении — хранятся в volume `gemini-cli_gemini-config`.
 
 ---
 
-## Решение проблем
+## Откат к стабильной версии
 
-**Контейнер не запускается**
 ```bash
-make logs
-```
-
-**OAuth слетел (редко)**
-```bash
-make attach
-# Внутри tmux: gemini  → повторить авторизацию
-```
-
-**Нет доступа по SSH после setup**
-```bash
-# Проверить что ключ был скопирован ДО запуска скрипта
-# Подключиться через консоль VPS-провайдера и проверить /etc/ssh/sshd_config
-```
-
-**Посмотреть capabilities контейнера**
-```bash
-docker exec gemini-cli-service cat /proc/1/status | grep -i cap
+cd /opt/gemini-cli
+git checkout v1.0.0
+make update
 ```
