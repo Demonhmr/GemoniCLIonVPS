@@ -133,7 +133,9 @@ grep -qxF "AllowUsers $DEPLOY_USER" "$SSHD_CONFIG" || \
 
 # Validate config before reloading
 sshd -t || die "sshd config validation failed. Check $SSHD_CONFIG"
-systemctl reload sshd
+# Ubuntu 22.04+: service named 'ssh', older systems: 'sshd'
+SSH_SERVICE=$(systemctl list-units --type=service --all | grep -oP '(sshd|ssh)(?=\.service)' | head -1)
+systemctl reload "$SSH_SERVICE"
 ok "SSH hardened — password login DISABLED, root login DISABLED"
 warn "From now on: ssh $DEPLOY_USER@<VPS_IP>"
 
