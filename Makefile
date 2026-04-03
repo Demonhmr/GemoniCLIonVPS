@@ -50,9 +50,11 @@ attach:
 shell:
 	docker exec -it gemini-cli-service bash
 
-# Run Gemini CLI interactively (TERM=xterm fixes SSH+Docker input issues)
+# Run Gemini CLI interactively
+# Uses 'script' to allocate a native PTY inside the container —
+# required for Ink/React TUI to receive keyboard input over SSH+docker exec
 gemini:
-	docker exec -e TERM=xterm -it gemini-cli-service gemini
+	docker exec -e TERM=xterm-256color -it gemini-cli-service script -q -c "gemini" /dev/null
 
 # Send a single prompt and get a response (most reliable on Windows SSH)
 # Usage: make ask Q="your question here"
