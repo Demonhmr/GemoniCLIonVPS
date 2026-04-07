@@ -54,8 +54,9 @@ function getContextPrompt(newMessage) {
 
 function execGemini(prompt) {
     return new Promise((resolve, reject) => {
-        // Run without shell to avoid command injection and escaping issues
-        const child = spawn('gemini', ['-p', prompt], { shell: false });
+        // Run without shell to avoid command injection and escaping issues.
+        // Include '-y' (YOLO mode) to automatically approve agentic tools, otherwise it hangs waiting for stdin Y/n confirmation.
+        const child = spawn('gemini', ['-p', prompt, '-y'], { shell: false });
         
         let stdout = '';
         let stderr = '';
