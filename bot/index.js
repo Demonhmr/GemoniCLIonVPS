@@ -9,7 +9,7 @@ if (!TELEGRAM_BOT_TOKEN || !ALLOWED_CHAT_ID) {
     process.exit(1);
 }
 
-const bot = new Telegraf(TELEGRAM_BOT_TOKEN);
+const bot = new Telegraf(TELEGRAM_BOT_TOKEN, { handlerTimeout: 9000000 });
 
 // History buffer (last 10 messages)
 const rawHistory = [];
