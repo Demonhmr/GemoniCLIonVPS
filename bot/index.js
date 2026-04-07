@@ -101,7 +101,9 @@ bot.on('text', async (ctx) => {
     }
 });
 
-bot.launch().then(() => {
+bot.launch({
+    handlerTimeout: 9000000 // 150 minutes timeout to prevent long-running commands from crashing the bot
+}).then(() => {
     console.log("🤖 Telegram Bot is running...");
 });
 
