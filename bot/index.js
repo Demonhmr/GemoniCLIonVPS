@@ -1,5 +1,8 @@
 const { Telegraf } = require('telegraf');
 const { spawn } = require('child_process');
+const fs = require('fs');
+const path = require('path');
+const https = require('https');
 
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const ALLOWED_CHAT_ID = process.env.ALLOWED_CHAT_ID;
@@ -13,6 +16,30 @@ const bot = new Telegraf(TELEGRAM_BOT_TOKEN, { handlerTimeout: 9000000 });
 
 // History buffer (last 10 messages)
 const rawHistory = [];
+
+// Ensure MyFiles directory exists
+const myFilesDir = path.join('/workspace', 'MyFiles');
+if (!fs.existsSync(myFilesDir)) {
+    fs.mkdirSync(myFilesDir, { recursive: true });
+}
+
+// Function to download a file from URL to local destination
+function downloadFile(url, dest) {
+    return new Promise((resolve, reject) => {
+        const file = fs.createWriteStream(dest);
+        https.get(url, (response) => {
+            if (response.statusCode !== 200) {
+                return reject(new Error(`Failed to download '${url}' (${response.statusCode})`));
+            }
+            response.pipe(file);
+            file.on('finish', () => {
+                file.close(resolve);
+            });
+        }).on('error', (err) => {
+            fs.unlink(dest, () => reject(err));
+        });
+    });
+}
 
 function getContextPrompt(newMessage) {
     if (rawHistory.length === 0) return newMessage;
@@ -98,6 +125,50 @@ bot.on('text', async (ctx) => {
     } catch (error) {
         console.error("Exec error:", error);
         await ctx.reply(`❌ Error executing Gemini CLI.\n${error.message}`);
+    }
+});
+
+bot.on(['document', 'photo'], async (ctx) => {
+    try {
+        let fileId;
+        let fileName;
+        
+        if (ctx.message.document) {
+            fileId = ctx.message.document.file_id;
+            fileName = ctx.message.document.file_name || `document_${Date.now()}`;
+        } else if (ctx.message.photo) {
+            // Photos come as an array of resolutions, take the highest one (last item)
+            const photo = ctx.message.photo[ctx.message.photo.length - 1];
+            fileId = photo.file_id;
+            fileName = `photo_${Date.now()}.jpg`;
+        }
+        
+        if (!fileId) return;
+
+        // Ensure valid filename
+        fileName = fileName.replace(/[^a-zA-Z0-9.\-_а-яА-ЯёЁ ]/g, '_');
+        
+        const fileLink = await ctx.telegram.getFileLink(fileId);
+        const destPath = path.join(myFilesDir, fileName);
+        
+        await ctx.sendChatAction('upload_document');
+        await downloadFile(fileLink.href, destPath);
+        
+        // Add to AI context so it knows the file is there
+        const infoMsg = `[SYSTEM: Файл загружен пользователем. Путь: /workspace/MyFiles/${fileName}]`;
+        rawHistory.push({role: 'user', text: infoMsg});
+        rawHistory.push({role: 'assistant', text: "Я принял файл и готов с ним работать."});
+        
+        // Keep history bounded
+        if (rawHistory.length > 10) {
+            rawHistory.splice(0, rawHistory.length - 10);
+        }
+        
+        await ctx.reply(`📁 Файл «${fileName}» успешно загружен в папку MyFiles/! Жду команды.`);
+        
+    } catch (error) {
+        console.error("File upload error:", error);
+        await ctx.reply(`❌ Ошибка сохранения файла: ${error.message}`);
     }
 });
 
